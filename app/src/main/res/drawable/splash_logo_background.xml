@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Couleur de fond au cas où l'image ne chargerait pas ou aurait des transparences -->
+    <item android:drawable="@android:color/black"/>
+    <!-- Votre logo, centré -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/logo_app" />
+    </item>
+</layer-list>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.AlertePsaume" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.AlertePsaume.Splash" parent="Theme.SplashScreen">
+        <!-- Utilise le drawable personnalisé pour l'arrière-plan -->
+        <item name="windowSplashScreenBackground">@drawable/splash_logo_background</item>
+        <!-- Supprime l'icône animée car le logo est maintenant dans le fond -->
+        <item name="windowSplashScreenAnimatedIcon">@null</item>
+        <!-- Thème à appliquer après le splash screen -->
+        <item name="postSplashScreenTheme">@style/Theme.AlertePsaume</item>
+    </style>
+</resources>
