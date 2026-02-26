@@ -2,7 +2,12 @@ package com.bible.alertepsaume
 
 import com.bible.alertepsaume.R
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -30,12 +36,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,7 +110,6 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
             currentIndex++
         }
 
-        // Un seul titre (déjà dans l'en-tête de la carte), puis uniquement les versets (chiffre en gras rouge, paragraphe sans espace)
         displayedText = buildAnnotatedString {
             for (verse in versesToDisplay) {
                 val verseNumber = verse.trim().substringBefore(" ")
@@ -127,11 +134,9 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
         val lines = randomPsalmChapter.split('\n').filter { it.isNotBlank() }
         val chapterTitle = lines.first()
         cardTitle = chapterTitle
-        // Le corps du chapitre est une seule ligne du type "1 Texte... 2 Texte... 3 Texte..." → on découpe par " numéro "
         val body = lines.drop(1).joinToString(" ")
         val verses = body.split(Regex(" (?=\\d+ )")).map { it.trim() }.filter { it.isNotBlank() }
 
-        // Chaque verset : chiffre en gras rouge, texte en paragraphe sans espace
         displayedText = buildAnnotatedString {
             for (verse in verses) {
                 val verseNumber = verse.substringBefore(" ")
@@ -146,7 +151,6 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
         }
     }
 
-    // Même design de fond que la page d'accueil : dégradé doré/ambre, sans image dominante
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -163,7 +167,6 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
                 )
             )
     ) {
-        // Paillettes légères comme sur la page d'accueil
         Canvas(modifier = Modifier.fillMaxSize()) {
             repeat(60) {
                 val x = Random.nextFloat() * size.width
@@ -182,9 +185,10 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Carte moins transparente pour que le texte reste lisible
             Surface(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
                 color = Color.White.copy(alpha = 0.92f),
                 tonalElevation = 2.dp,
@@ -224,22 +228,51 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
                             .padding(horizontal = 20.dp)
                             .padding(bottom = 20.dp)
                     ) { targetText ->
-                        Text(
-                            text = targetText,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
-                            textAlign = TextAlign.Start,
-                            lineHeight = 24.sp,
-                            fontFamily = FontFamily.Serif
-                        )
+                        val scrollState = rememberScrollState()
+                        val showScrollIndicator by remember {
+                            derivedStateOf { scrollState.canScrollForward }
+                        }
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Text(
+                                text = targetText,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(scrollState),
+                                textAlign = TextAlign.Start,
+                                lineHeight = 24.sp,
+                                fontFamily = FontFamily.Serif
+                            )
+
+                            val infiniteTransition = rememberInfiniteTransition()
+                            val position by infiniteTransition.animateFloat(
+                                initialValue = 0f,
+                                targetValue = 8f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(800, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                )
+                            )
+
+                            if (showScrollIndicator) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Faire défiler",
+                                    tint = Color.Black.copy(alpha = 0.4f),
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(bottom = 12.dp)
+                                        .size(32.dp)
+                                        .offset(y = position.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // --- SECTION BOUTONS --- 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -248,20 +281,17 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Bouton Verset du jour - Design moderne avec icône
                     VerseButton(
                         onClick = { getVerseOfTheDay() },
                         modifier = Modifier.weight(1f)
                     )
                     
-                    // Bouton Chapitre du jour - Design avec dégradé doré
                     ChapterButton(
                         onClick = { getChapterOfTheDay() },
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                // Bouton Notifications - Design avec couleur de notification
                 NotificationButton(
                     onClick = { onActivateNotifications() },
                     modifier = Modifier.fillMaxWidth()
@@ -271,7 +301,6 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
     }
 }
 
-// Bouton Verset du jour - Pilule off-white, cœur bleu, ombre légère (design capture)
 @Composable
 fun VerseButton(
     onClick: () -> Unit,
@@ -326,7 +355,6 @@ fun VerseButton(
     }
 }
 
-// Bouton Chapitre du jour - Pilule dorée, étoile noire, ombre légère (design capture)
 @Composable
 fun ChapterButton(
     onClick: () -> Unit,
@@ -381,7 +409,6 @@ fun ChapterButton(
     }
 }
 
-// Bouton Notifications - Pilule bleue dégradé (sombre→clair), paillettes blanches, cloche dorée (design capture)
 @Composable
 fun NotificationButton(
     onClick: () -> Unit,
@@ -421,7 +448,6 @@ fun NotificationButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Paillettes / petites étoiles blanches sur le bouton
         Canvas(modifier = Modifier.matchParentSize()) {
             repeat(25) {
                 val x = Random.nextFloat() * size.width
