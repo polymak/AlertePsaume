@@ -35,11 +35,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,8 +70,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import kotlin.random.Random
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PsalmScreen(onActivateNotifications: () -> Unit) {
     val context = LocalContext.current
@@ -79,19 +85,24 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
         })
     }
     var cardTitle by remember { mutableStateOf("Psaume...") }
+    var showPopup by remember { mutableStateOf(false) }
 
     fun getVerseOfTheDay() {
+        // Correction : Pas de popup pour le verset, et affichage infini (nouveau verset à chaque clic)
+        showPopup = false 
+
         if (PsalmData.psalms.isEmpty()) {
-            displayedText = buildAnnotatedString { append("Aucun psaume n\'a été chargé.") }
+            displayedText = buildAnnotatedString { append("Aucun psaume n'a été chargé.") }
             return
         }
 
-        // Utilisation de l'algorithme de sélection intelligente
-        val (chapterIndex, startVerseIndex) = PsalmSelectionManager.getNextVerseSelection(context)
-        val psalmText = PsalmData.psalms[chapterIndex]
+        // On récupère une sélection aléatoire au lieu de la sélection fixe du jour
+        val selection = PsalmSelectionManager.getRandomVerseSelection(context)
+        val chapterIndex = selection.first
+        val startVerseIndex = selection.second
         
-        val chapterTitle = psalmText.substringBefore('\n')
-        cardTitle = chapterTitle
+        val psalmText = PsalmData.psalms[chapterIndex]
+        cardTitle = psalmText.substringBefore('\n')
         
         val allVerses = PsalmSelectionManager.splitIntoVerses(psalmText)
         if (allVerses.isEmpty()) return
@@ -99,26 +110,15 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
         val versesToDisplay = mutableListOf<String>()
         val shownIndices = mutableListOf<Int>()
         
-        var currentIndex = startVerseIndex
-        val firstVerse = allVerses[currentIndex]
-        versesToDisplay.add(firstVerse)
-        shownIndices.add(currentIndex)
-
-        if (firstVerse.trim().startsWith("Au chef des chantres")) {
-            if (currentIndex + 1 < allVerses.size) {
-                currentIndex++
-                versesToDisplay.add(allVerses[currentIndex])
-                shownIndices.add(currentIndex)
+        for (i in 0 until 3) {
+            val idx = startVerseIndex + i
+            if (idx < allVerses.size) {
+                versesToDisplay.add(allVerses[idx])
+                shownIndices.add(idx)
             }
         }
 
-        while (versesToDisplay.last().trim().let { it.endsWith("...") || it.endsWith(",") || it.endsWith("?") || it.endsWith(":") } && currentIndex + 1 < allVerses.size) {
-            currentIndex++
-            versesToDisplay.add(allVerses[currentIndex])
-            shownIndices.add(currentIndex)
-        }
-
-        // Marquer les versets comme affichés
+        // On marque ces versets comme vus pour ne pas les répéter trop vite
         PsalmSelectionManager.markVersesShown(context, chapterIndex, shownIndices)
 
         displayedText = buildAnnotatedString {
@@ -136,20 +136,26 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
     }
 
     fun getChapterOfTheDay() {
-        if (PsalmData.psalms.isEmpty()) {
-            displayedText = buildAnnotatedString { append("Aucun psaume n\'a été chargé.") }
+        // Le popup s'affiche uniquement pour le chapitre s'il a déjà été lu
+        if (PsalmSelectionManager.isChapterReadToday(context)) {
+            showPopup = true
             return
         }
 
-        // Sélection intelligente du chapitre
-        val chapterIndex = PsalmSelectionManager.getNextChapterIndex(context)
+        if (PsalmData.psalms.isEmpty()) {
+            displayedText = buildAnnotatedString { append("Aucun psaume n'a été chargé.") }
+            return
+        }
+
+        val chapterIndex = PsalmSelectionManager.getDailyUiChapterIndex(context)
         val psalmText = PsalmData.psalms[chapterIndex]
         
         val lines = psalmText.split('\n').filter { it.isNotBlank() }
-        val chapterTitle = lines.first()
-        cardTitle = chapterTitle
+        cardTitle = lines.first()
         val body = lines.drop(1).joinToString(" ")
         val verses = body.split(Regex(" (?=\\d+ )")).map { it.trim() }.filter { it.isNotBlank() }
+
+        PsalmSelectionManager.markChapterAsRead(context)
 
         displayedText = buildAnnotatedString {
             for (verse in verses) {
@@ -160,6 +166,47 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
                 }
                 withStyle(style = SpanStyle(color = Color.DarkGray, fontSize = 18.sp)) {
                     append(" $verseText\n")
+                }
+            }
+        }
+    }
+
+    if (showPopup) {
+        BasicAlertDialog(
+            onDismissRequest = { showPopup = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White
+            ) {
+                Box(modifier = Modifier.padding(20.dp)) {
+                    IconButton(
+                        onClick = { showPopup = false },
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Fermer")
+                    }
+                    
+                    Column(
+                        modifier = Modifier.padding(top = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Voici la Parole de Dieu qui vous a été réservée pour aujourd’hui. Revenez demain à partir de 07:00.",
+                            textAlign = TextAlign.Center,
+                            fontSize = 18.sp,
+                            color = Color.DarkGray,
+                            lineHeight = 26.sp,
+                            fontFamily = FontFamily.Serif
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }

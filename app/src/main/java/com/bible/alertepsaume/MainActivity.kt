@@ -31,29 +31,35 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        // Correction : installSplashScreen() doit être appelé AVANT super.onCreate()
         installSplashScreen()
+        super.onCreate(savedInstanceState)
+        
         NotificationUtils.createNotificationChannel(this)
 
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val isFirstLaunch = prefs.getBoolean("is_first_launch", true)
-
-        if (isFirstLaunch) {
-            askForNotificationPermission() // Demande automatique au premier lancement
-            prefs.edit().putBoolean("is_first_launch", false).apply()
-        } else if (prefs.getBoolean("notifications_enabled", false)) {
-            // Assure que la notif est reprogrammée si l'app est juste redémarrée (pas le tel)
-            NotificationUtils.scheduleDailyNotification(this)
-        }
 
         setContent {
             AlertePsaumeTheme {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "home") {
                     composable("home") { HomeScreen(navController) }
-                    composable("psalm") { PsalmScreen(::askForNotificationPermission) } // On laisse le bouton pour réactiver
+                    composable("psalm") { PsalmScreen(::askForNotificationPermission) }
+                }
+
+                // Déclenchement de la demande de permission après le premier affichage
+                if (isFirstLaunch) {
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        askForNotificationPermission()
+                        prefs.edit().putBoolean("is_first_launch", false).apply()
+                    }
                 }
             }
+        }
+
+        if (!isFirstLaunch && prefs.getBoolean("notifications_enabled", false)) {
+            NotificationUtils.scheduleDailyNotification(this)
         }
     }
 
@@ -64,25 +70,14 @@ class MainActivity : ComponentActivity() {
                     this,
                     Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED -> {
-                    // La permission est déjà accordée
                     NotificationUtils.scheduleDailyNotification(this)
-                    // Optionnel: afficher un toast seulement si l'utilisateur clique sur le bouton, pas au lancement
-                    // Toast.makeText(this, "Notifications quotidiennes déjà activées !", Toast.LENGTH_SHORT).show()
-                }
-                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
-                    // Expliquer pourquoi la permission est utile avant de la redemander
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 else -> {
-                    // Demander la permission
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
         } else {
-            // Pas besoin de demander la permission pour les versions antérieures
             NotificationUtils.scheduleDailyNotification(this)
-            // Optionnel: afficher un toast seulement si l'utilisateur clique sur le bouton
-            // Toast.makeText(this, "Notifications quotidiennes activées !", Toast.LENGTH_SHORT).show()
         }
     }
 }

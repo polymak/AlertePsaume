@@ -5,6 +5,7 @@
     <!-- Permissions requises -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
@@ -27,7 +28,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Déclaration des nouveaux récepteurs -->
+        <!-- Déclaration des récepteurs -->
         <receiver
             android:name=".NotificationReceiver"
             android:enabled="true" />
