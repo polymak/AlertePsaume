@@ -56,6 +56,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -69,6 +70,7 @@ import kotlin.random.Random
 
 @Composable
 fun PsalmScreen(onActivateNotifications: () -> Unit) {
+    val context = LocalContext.current
     var displayedText by remember {
         mutableStateOf(buildAnnotatedString {
             withStyle(style = SpanStyle(color = Color.Black, fontSize = 18.sp, fontFamily = FontFamily.Serif)) {
@@ -84,31 +86,40 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
             return
         }
 
-        val randomPsalmChapter = PsalmData.psalms.random()
-        val chapterTitle = randomPsalmChapter.substringBefore('\n')
+        // Utilisation de l'algorithme de sélection intelligente
+        val (chapterIndex, startVerseIndex) = PsalmSelectionManager.getNextVerseSelection(context)
+        val psalmText = PsalmData.psalms[chapterIndex]
+        
+        val chapterTitle = psalmText.substringBefore('\n')
         cardTitle = chapterTitle
-        val chapterBody = randomPsalmChapter.substringAfter('\n')
-        val bodyWithNewlines = chapterBody.replace(Regex(" (\\d+ )"), "\n$1")
-        val allVerses = bodyWithNewlines.split('\n').filter { it.isNotBlank() }
+        
+        val allVerses = PsalmSelectionManager.splitIntoVerses(psalmText)
+        if (allVerses.isEmpty()) return
 
-        if (allVerses.isEmpty()) { return }
-
-        var currentIndex = Random.nextInt(0, allVerses.size)
-        val firstVerse = allVerses[currentIndex]
         val versesToDisplay = mutableListOf<String>()
+        val shownIndices = mutableListOf<Int>()
+        
+        var currentIndex = startVerseIndex
+        val firstVerse = allVerses[currentIndex]
         versesToDisplay.add(firstVerse)
+        shownIndices.add(currentIndex)
 
         if (firstVerse.trim().startsWith("Au chef des chantres")) {
             if (currentIndex + 1 < allVerses.size) {
-                versesToDisplay.add(allVerses[currentIndex + 1])
                 currentIndex++
+                versesToDisplay.add(allVerses[currentIndex])
+                shownIndices.add(currentIndex)
             }
         }
 
         while (versesToDisplay.last().trim().let { it.endsWith("...") || it.endsWith(",") || it.endsWith("?") || it.endsWith(":") } && currentIndex + 1 < allVerses.size) {
-            versesToDisplay.add(allVerses[currentIndex + 1])
             currentIndex++
+            versesToDisplay.add(allVerses[currentIndex])
+            shownIndices.add(currentIndex)
         }
+
+        // Marquer les versets comme affichés
+        PsalmSelectionManager.markVersesShown(context, chapterIndex, shownIndices)
 
         displayedText = buildAnnotatedString {
             for (verse in versesToDisplay) {
@@ -130,8 +141,11 @@ fun PsalmScreen(onActivateNotifications: () -> Unit) {
             return
         }
 
-        val randomPsalmChapter = PsalmData.psalms.random()
-        val lines = randomPsalmChapter.split('\n').filter { it.isNotBlank() }
+        // Sélection intelligente du chapitre
+        val chapterIndex = PsalmSelectionManager.getNextChapterIndex(context)
+        val psalmText = PsalmData.psalms[chapterIndex]
+        
+        val lines = psalmText.split('\n').filter { it.isNotBlank() }
         val chapterTitle = lines.first()
         cardTitle = chapterTitle
         val body = lines.drop(1).joinToString(" ")

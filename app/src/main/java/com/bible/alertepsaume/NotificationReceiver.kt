@@ -11,7 +11,7 @@ import kotlin.random.Random
 class NotificationReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        // 1. Logique pour obtenir le chapitre du jour
+        // 1. Logique pour obtenir le chapitre du jour de manière intelligente
         val chapterData = getDailyChapter(context)
 
         // 2. Créer une intention pour ouvrir l'application lorsque l'on clique sur la notification
@@ -45,9 +45,12 @@ class NotificationReceiver : BroadcastReceiver() {
             return ChapterData("AlertePsaume", "Aucun psaume n'a été chargé.")
         }
 
-        val randomPsalmChapter = PsalmData.psalms.random()
-        val chapterTitle = randomPsalmChapter.substringBefore('\n')
-        val chapterBody = randomPsalmChapter.substringAfter('\n').replace(Regex(" (\\d+ )"), "\n$1")
+        // Utilisation du PsalmSelectionManager pour un affichage intelligent
+        val chapterIndex = PsalmSelectionManager.getNextChapterIndex(context)
+        val psalmText = PsalmData.psalms[chapterIndex]
+        
+        val chapterTitle = psalmText.substringBefore('\n')
+        val chapterBody = psalmText.substringAfter('\n').replace(Regex(" (\\d+ )"), "\n$1")
 
         return ChapterData(chapterTitle, chapterBody)
     }
