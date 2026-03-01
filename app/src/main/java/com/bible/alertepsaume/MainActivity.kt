@@ -31,7 +31,6 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Correction : installSplashScreen() doit être appelé AVANT super.onCreate()
         installSplashScreen()
         super.onCreate(savedInstanceState)
         
@@ -45,10 +44,14 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "home") {
                     composable("home") { HomeScreen(navController) }
-                    composable("psalm") { PsalmScreen(::askForNotificationPermission) }
+                    composable("psalm") { 
+                        PsalmScreen(
+                            onBack = { navController.popBackStack() },
+                            onActivateNotifications = { askForNotificationPermission() }
+                        ) 
+                    }
                 }
 
-                // Déclenchement de la demande de permission après le premier affichage
                 if (isFirstLaunch) {
                     androidx.compose.runtime.LaunchedEffect(Unit) {
                         askForNotificationPermission()
